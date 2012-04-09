@@ -58,7 +58,9 @@ http://www.gnu.org/licenses/lgpl.txt
 Version info:
 - v1.0
 Initial release
+- v1.1
+Added option to sync position/rotation
+Added check to make sure recording stays close to realtime (in case recording/playback frame rates are different)
+More robust Recording format
 
 TODO:
-- Have option to store position/rotation info in recording, to avoid moving objects drifting 
-off course over time.
