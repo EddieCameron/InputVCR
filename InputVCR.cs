@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /* InputVCR.cs - copyright Eddie Cameron 2012
+=======
+/* InputVCR.cs - Eddie Cameron
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
  * ----------
  * Place on any object you wish to use to record or playback any inputs for
  * Switch modes to change current behaviour
@@ -24,9 +28,15 @@
   
   void Awake()
   {
+<<<<<<< HEAD
     Transform root = transform;
 	while ( root.parent != null )
 		root = root.parent;
+=======
+    GameObject root = gameObject;
+	while ( root.transform.parent != null )
+		root = root.transform.parent;
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 	vcr = root.GetComponent<InputVCR>();
 	useVCR = vcr != null;
   }
@@ -39,12 +49,15 @@
   	<some input value> = Input.GetSomeInput( "someInputName" );
   
  * Easy! 
+<<<<<<< HEAD
  * -------------
  * More information and tools at grapefruitgames.com, @eddiecameron, or support@grapefruitgames.com
  * 
  * This script is open source under the GNU LGPL licence. Do what you will with it! 
  * http://www.gnu.org/licenses/lgpl.txt
  * 
+=======
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
  */ 
 
 using UnityEngine;
@@ -57,6 +70,7 @@ public class InputVCR : MonoBehaviour
 {
 	public InputInfo[] inputsToRecord;  // list of axis and button names ( from Input manager) that should be recorded
 	public bool recordMouseEvents;		// whether mouse position/button states should be recorded each frame (mouse axes are separate from this)
+<<<<<<< HEAD
 	
 	public bool syncRecordLocations = true;
 	float nextSyncTime = -1f;
@@ -73,6 +87,13 @@ public class InputVCR : MonoBehaviour
 	private Dictionary<string, InputInfo> watchedInputs;	// list of inputs currently being recorded, or contains most recent inputs during playback
 	private Dictionary<string, InputInfo> lastInputs;		// list of inputs from last frame
 	private Dictionary<string, string> watchedProperties;	// list of properties that were recorded this frame (during playback)
+=======
+	private string recordString;
+	
+	private StringReader playbackReader;
+	
+	private Dictionary<string, InputInfo> watchedInputs;	// list of inputs currently being recorded, or contains most recent inputs during playback
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 	private bool mouseIsWatched;
 	private Vector3 lastMousePosition;						// holds mouse position if was or is being recorded
 	
@@ -83,6 +104,7 @@ public class InputVCR : MonoBehaviour
 		get { return _mode; }
 	}
 	
+<<<<<<< HEAD
 	public event System.Action finishedPlayback;	// sent when playback finishes
 	
 	void Awake()
@@ -97,6 +119,11 @@ public class InputVCR : MonoBehaviour
 		recordingTime = 0f;
 		nextSyncTime = -1f;
 		nextPropertiesToRecord = new Queue<string>();
+=======
+	public void Record()
+	{
+		// start recording live input
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 		
 		// set up all inputs that should be recorded
 		watchedInputs = new Dictionary<string, InputInfo>();
@@ -120,23 +147,37 @@ public class InputVCR : MonoBehaviour
 		}
 		
 		_mode = InputVCRMode.Record;
+<<<<<<< HEAD
+=======
+		playbackReader = null;
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 	}
 	
 	public void Play()
 	{
 		// if currently paused during playback, will continue
+<<<<<<< HEAD
 		if ( mode == InputVCRMode.Pause )
 			_mode = InputVCRMode.Playback;
 		else
 		{
 			// if not given any input string, will use last recording
 			Play ( currentRecording );
+=======
+		if ( playbackReader != null )
+			_mode = InputVCRMode.Playback;
+		else
+		{
+			// if not given any input string, will use last recorded string
+			Play ( recordString );
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 		}
 	}
 	
 	public void Play( string inputString )
 	{
 		// restart playback with given input string
+<<<<<<< HEAD
 		Play ( new Recording( inputString ) );
 	}
 	
@@ -184,6 +225,24 @@ public class InputVCR : MonoBehaviour
 		return currentRecording;
 	}
 	
+=======
+		playbackReader = new StringReader( inputString );
+		_mode = InputVCRMode.Playback;
+	}
+	
+	public void  Pause()
+	{
+		_mode = InputVCRMode.Pause;
+	}
+	
+	public void Stop()
+	{
+		_mode = InputVCRMode.Passthru;
+		playbackReader = null;
+		watchedInputs = new Dictionary<string, InputInfo>();
+	}
+	
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 	void LateUpdate()
 	{	
 		if ( _mode == InputVCRMode.Record )
@@ -191,6 +250,7 @@ public class InputVCR : MonoBehaviour
 			// record any inputs that should be
 			StringBuilder sb = new StringBuilder();
 			
+<<<<<<< HEAD
 			// record timestamp
 			currentRecording.frameTimes.Add ( recordingTime );
 			currentRecording.recordingLength = recordingTime;
@@ -331,15 +391,74 @@ public class InputVCR : MonoBehaviour
 		if ( finishedPlayback != null )
 			finishedPlayback( );
 		Stop ();
+=======
+			// mouse position if required
+			if ( recordMouseEvents )
+				sb.Append ( "mousepos," + Input.mousePosition.x.ToString () + "," + Input.mousePosition.y );
+			
+			// and buttons
+			foreach( InputInfo input in watchedInputs.Values )
+				sb.Append ( "{" + input.ToString () + "}" );
+			
+			sb.AppendLine ();
+			recordString += sb.ToString ();
+		}
+		else if ( _mode == InputVCRMode.Playback )
+		{
+			// parse next frame from playbackreader and place info into watchedInputs to be read from  when needed
+			watchedInputs = new Dictionary<string, InputInfo>();
+			mouseIsWatched = false;
+			
+			try
+			{
+				if ( playbackReader.Peek() != -1 )
+				{
+					string[] inputs = playbackReader.ReadLine ().Split ( "{".ToCharArray (), System.StringSplitOptions.RemoveEmptyEntries );
+					if ( inputs.Length > 0 )
+					{
+						foreach( string inputInfo in inputs )
+						{
+							if ( inputInfo[inputInfo.Length - 1] != '}' )
+							{
+								// not in InputInfo format, so should be mouseposition
+								mouseIsWatched = true;
+								string[] mouse = inputInfo.Split ( ",".ToCharArray() );
+								lastMousePosition.x = float.Parse ( mouse[1] );
+								lastMousePosition.y = float.Parse ( mouse[2] );
+							}
+							else
+							{
+								// strip closing bracket and make new InputInfo object
+								InputInfo newInput = new InputInfo( inputInfo.Remove ( inputInfo.Length - 1 ) );
+								watchedInputs.Add ( newInput.inputName, newInput );
+							}
+						}
+					}
+				}
+				else
+					Stop ();
+			}
+			catch ( System.Exception e )
+			{
+				Debug.LogWarning ( e.Message );
+				Debug.LogWarning ( playbackReader.ReadToEnd () );
+				watchedInputs = new Dictionary<string, InputInfo>();
+				mouseIsWatched = false;
+			}
+		}
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 	}
 	
 	// These methods replace those in Input, so that this object can ignore whether it is record
 	#region Input replacements
 	public bool GetButton( string buttonName )
 	{
+<<<<<<< HEAD
 		if ( _mode == InputVCRMode.Pause )
 			return false;
 		
+=======
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 		if ( _mode == InputVCRMode.Playback && watchedInputs.ContainsKey ( buttonName ) )
 			return watchedInputs[buttonName].buttonState;
 		else
@@ -348,31 +467,44 @@ public class InputVCR : MonoBehaviour
 	
 	public bool GetButtonDown( string buttonName )
 	{
+<<<<<<< HEAD
 		if ( _mode == InputVCRMode.Pause )
 			return false;
 		
 		if ( _mode == InputVCRMode.Playback && watchedInputs.ContainsKey( buttonName ) )
 			return ( watchedInputs[buttonName].buttonState && ( lastInputs == null || !lastInputs.ContainsKey ( buttonName ) || !lastInputs[buttonName].buttonState ) );
+=======
+		if ( _mode == InputVCRMode.Playback && watchedInputs.ContainsKey( buttonName ) )
+			return watchedInputs[buttonName].justDown;
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 		else
 			return Input.GetButtonDown ( buttonName );
 	}
 	
 	public bool GetButtonUp( string buttonName )
 	{
+<<<<<<< HEAD
 		if ( _mode == InputVCRMode.Pause )
 			return false;
 		
 		if ( _mode == InputVCRMode.Playback && watchedInputs.ContainsKey( buttonName ) )
 			return ( !watchedInputs[buttonName].buttonState && ( lastInputs == null || !lastInputs.ContainsKey ( buttonName ) || lastInputs[buttonName].buttonState ) );
+=======
+		if ( _mode == InputVCRMode.Playback && watchedInputs.ContainsKey( buttonName ) )
+			return watchedInputs[buttonName].justUp;
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 		else
 			return Input.GetButtonUp ( buttonName );
 	}
 	
 	public float GetAxis( string axisName )
 	{
+<<<<<<< HEAD
 		if ( _mode == InputVCRMode.Pause )
 			return 0;
 		
+=======
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 		if ( _mode == InputVCRMode.Playback && watchedInputs.ContainsKey( axisName ) )
 			return watchedInputs[axisName].axisValue;
 		else
@@ -381,46 +513,66 @@ public class InputVCR : MonoBehaviour
 	
 	public bool GetMouseButton( int buttonNum )
 	{
+<<<<<<< HEAD
 		if ( _mode == InputVCRMode.Pause )
 			return false;
 		
 		string mouseButtonName =  "mousebutton" + buttonNum.ToString();
 		if ( _mode == InputVCRMode.Playback && watchedInputs.ContainsKey ( mouseButtonName ) )
 			return watchedInputs[mouseButtonName].buttonState;
+=======
+		if ( _mode == InputVCRMode.Playback && watchedInputs.ContainsKey ( "mousebutton" + buttonNum.ToString() ) )
+			return watchedInputs["mousebutton" + buttonNum.ToString () ].buttonState;
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 		else
 			return Input.GetMouseButton( buttonNum );
 	}
 	
 	public bool GetMouseButtonDown( int buttonNum )
 	{
+<<<<<<< HEAD
 		if ( _mode == InputVCRMode.Pause )
 			return false;
 		
 		string mouseButtonName =  "mousebutton" + buttonNum.ToString();
 		if ( _mode == InputVCRMode.Playback && watchedInputs.ContainsKey ( mouseButtonName ) )
 			return ( watchedInputs[ mouseButtonName ].buttonState && ( lastInputs == null || !lastInputs.ContainsKey ( mouseButtonName ) || !lastInputs[mouseButtonName].buttonState ) );
+=======
+		if ( _mode == InputVCRMode.Playback && watchedInputs.ContainsKey ( "mousebutton" + buttonNum.ToString() ) )
+			return watchedInputs["mousebutton" + buttonNum.ToString () ].justDown;
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 		else
 			return Input.GetMouseButtonDown( buttonNum );
 	}
 	
 	public bool GetMouseButtonUp( int buttonNum )
 	{
+<<<<<<< HEAD
 		if ( _mode == InputVCRMode.Pause )
 			return false;
 		
 		string mouseButtonName =  "mousebutton" + buttonNum.ToString();
 		if ( _mode == InputVCRMode.Playback && watchedInputs.ContainsKey ( "mousebutton" + buttonNum.ToString() ) )
 			return ( !watchedInputs[ mouseButtonName ].buttonState && ( lastInputs == null || !lastInputs.ContainsKey ( mouseButtonName ) || lastInputs[mouseButtonName].buttonState ) );
+=======
+		if ( _mode == InputVCRMode.Playback && watchedInputs.ContainsKey ( "mousebutton" + buttonNum.ToString() ) )
+			return watchedInputs["mousebutton" + buttonNum.ToString () ].justUp;
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 		else
 			return Input.GetMouseButtonUp( buttonNum );
 	}
 	
 	public Vector3 mousePosition
+<<<<<<< HEAD
 	{	
 		get {
 			if ( _mode == InputVCRMode.Pause )
 				return Vector3.zero;
 			
+=======
+	{
+		get {
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 			if ( _mode == InputVCRMode.Playback && mouseIsWatched )
 				return lastMousePosition;
 			else
@@ -438,6 +590,7 @@ public enum InputVCRMode
 	Pause
 }
 
+<<<<<<< HEAD
 public struct Recording
 {
 	public List<float> frameTimes;
@@ -491,6 +644,8 @@ public struct Recording
 	}
 }
 
+=======
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 [System.Serializable]
 public class InputInfo	// represents all input during one frame
 {
@@ -502,6 +657,13 @@ public class InputInfo	// represents all input during one frame
 	
 	[HideInInspector]
 	public bool buttonState;
+<<<<<<< HEAD
+=======
+	[HideInInspector]
+	public bool justDown;
+	[HideInInspector]
+	public bool justUp;
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 	
 	[HideInInspector]
 	public float axisValue;	// not raw value
@@ -513,6 +675,11 @@ public class InputInfo	// represents all input during one frame
 		mouseButtonNum = -1;
 		isAxis = false;
 		buttonState = false;
+<<<<<<< HEAD
+=======
+		justDown = false;
+		justUp = false;
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 		axisValue = 0f;
 	}
 	
@@ -545,9 +712,23 @@ public class InputInfo	// represents all input during one frame
 			{
 				isAxis = false;
 				if ( values[2] == "d" )
+<<<<<<< HEAD
 					buttonState = true;
 				else
 					buttonState = false;
+=======
+				{
+					buttonState = true;
+					justDown = values[3] == "1";
+					justUp = false;
+				}
+				else
+				{
+					buttonState = false;
+					justDown = false;
+					justUp = values[4] == "1";
+				}
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 			}
 		}
 	}
@@ -571,9 +752,28 @@ public class InputInfo	// represents all input during one frame
 		{
 			sb.Append ( ",b" );
 			if ( ( mouseButtonNum < 0 && Input.GetButton( inputName ) ) || ( mouseButtonNum >= 0 && Input.GetMouseButton ( mouseButtonNum ) ) )
+<<<<<<< HEAD
 				sb.Append ( ",d" );
 			else
 				sb.Append ( ",u" );
+=======
+			{
+				sb.Append ( ",d" );
+				if ( ( mouseButtonNum < 0 && Input.GetButtonDown( inputName ) ) || ( mouseButtonNum >= 0 && Input.GetMouseButtonDown ( mouseButtonNum ) ) ) 
+					sb.Append ( ",1" );
+				else
+					sb.Append( ",0" );
+				sb.Append( ",u" );
+			}
+			else
+			{
+				sb.Append ( ",u,u," );
+				if ( ( mouseButtonNum < 0 && Input.GetButtonUp ( inputName ) ) || ( mouseButtonNum >= 0 && Input.GetMouseButtonUp( mouseButtonNum ) ) )
+					sb.Append ( ",1" );
+				else
+					sb.Append ( ",0" );
+			}
+>>>>>>> a4ca38c67cace94d54a4ce798b406ae4c5f1e5d8
 		}
 		return sb.ToString ();
 	}
