@@ -7,6 +7,11 @@
  *   - Playback : object will use either provided input string or last recorded string rather than live input
  *   - Pause : object will take no input (buttons/axis will be frozen in last positions)
  * 
+ * -----------
+ * Recordings are all saved to the 'currentRecording' member, which you can get with GetRecording(). This can then be copied 
+ * to a new Recording object to be saved and played back later.
+ * Call ToString() on these recordings to get a text version of this if you want to save a recording after the program exits.
+ * -----------
  * To use, place in a gameobject, and have all scripts in the object refer to it instead of Input.
  * 
  * eg: instead of Input.GetButton( "Jump" ), you would use vcr.GetButton( "Jump" ), where vcr is a 
@@ -62,15 +67,17 @@ public class InputVCR : MonoBehaviour
 	float nextSyncTime = -1f;
 	public bool snapToSyncedLocation = true;	// if SyncLocation is called during recording, object will snap to that pos/rot during playback. Otherwise you can handle interpolation if needed
 	
-	private Recording currentRecording;
+	private Recording currentRecording;		// the actual recording. Copy or ToString() this to save.
 	private float recordingTime;
 	
 	private float _currentPlaybackTime;
 	public float currentPlaybackTime{ get { return _currentPlaybackTime; } }
+	private int _currentPlaybackFrame;
+	public int currentPlaybackFrame{ get { return _currentPlaybackFrame; } }
 	
 	private Queue<string> nextPropertiesToRecord;	// if SyncLocation or SyncProperty are called, this will hold their results until the recordstring is next written to
 		
-	private Dictionary<string, InputInfo> watchedInputs;	// list of inputs currently being recorded, or contains most recent inputs during playback
+	public Dictionary<string, InputInfo> watchedInputs;	// list of inputs currently being recorded, or contains most recent inputs during playback
 	private Dictionary<string, InputInfo> lastInputs;		// list of inputs from last frame
 	private Dictionary<string, string> watchedProperties;	// list of properties that were recorded this frame (during playback)
 	private bool mouseIsWatched;
@@ -88,9 +95,18 @@ public class InputVCR : MonoBehaviour
 	void Awake()
 	{
 		watchedInputs = new Dictionary<string, InputInfo>();
+		watchedProperties = new Dictionary<string, string>();
 	}
 	
 	public void Record()
+	{
+		if ( currentRecording == null || currentRecording.recordingLength == 0 )
+			NewRecording();
+		else
+			_mode = InputVCRMode.Record;
+	}
+	
+	public void NewRecording()
 	{
 		// start recording live input
 		currentRecording = new Recording("");
@@ -140,11 +156,12 @@ public class InputVCR : MonoBehaviour
 		Play ( new Recording( inputString ) );
 	}
 	
-	public void Play( Recording recording, float startRecordingFrom = 0f )
+	public void Play( Recording recording, int startRecordingFromFrame = 0 )
 	{
 		StopCoroutine ( "PlayRecording" );
 		_mode = InputVCRMode.Playback;
-		_currentPlaybackTime = startRecordingFrom;
+		_currentPlaybackFrame = startRecordingFromFrame;
+		_currentPlaybackTime = recording.frameTimes[startRecordingFromFrame];
 		StartCoroutine ( "PlayRecording", recording );
 	}
 	
@@ -179,9 +196,30 @@ public class InputVCR : MonoBehaviour
 		nextPropertiesToRecord.Enqueue ( "{rotation=" + transform.eulerAngles.x.ToString () + "," + transform.eulerAngles.y.ToString () + "," + transform.eulerAngles.z.ToString() + "}" );
 	}
 	
+	/// <summary>
+	/// Adds a custom property to the recording, so you can sync other (non-input) events as well
+	/// </summary>
+	/// <param name='propertyName'>
+	/// Property name.
+	/// </param>
+	/// <param name='propertyValue'>
+	/// Property value.
+	/// </param>
+	public void SyncProperty( string propertyName, string propertyValue )
+	{
+		string propString = "{" + propertyName + "=" + propertyValue + "}";
+		if ( !nextPropertiesToRecord.Contains ( propString ) )
+			nextPropertiesToRecord.Enqueue ( propString );
+	}
+	
 	public Recording GetRecording()
 	{
 		return currentRecording;
+	}
+	
+	public int GetCurrentRecordingFrame()
+	{
+		return currentRecording.frameTimes.Count;
 	}
 	
 	void LateUpdate()
@@ -221,23 +259,18 @@ public class InputVCR : MonoBehaviour
 	
 	IEnumerator PlayRecording( Recording toPlay )
 	{
-		// find frame to start from
-		int recordingFrame = 0;
-		while ( recordingFrame < toPlay.frameTimes.Count && toPlay.frameTimes[recordingFrame] < currentPlaybackTime )
-			recordingFrame++;
-		
-		while( _currentPlaybackTime < toPlay.recordingLength && recordingFrame < toPlay.frameTimes.Count )
+		// find frame to start from		
+		while( _currentPlaybackTime < toPlay.recordingLength && currentPlaybackFrame < Mathf.Min ( toPlay.frameProperties.Count, toPlay.frameTimes.Count ) )
 		{
 			if ( mode == InputVCRMode.Pause )
 				yield return 0;
 			else
 			{
-				float nextFrameTime = toPlay.frameTimes[recordingFrame];			
+				float nextFrameTime = toPlay.frameTimes[currentPlaybackFrame];			
 				
 				// allow to catch up to recording if it is further ahead
 				if ( _currentPlaybackTime < nextFrameTime - Time.deltaTime * 5 )
 				{
-					Debug.Log ( "Recording ahead: Playtime " + _currentPlaybackTime + " Recordtime " + nextFrameTime );
 					_currentPlaybackTime += Time.deltaTime;
 					yield return 0;
 					continue;
@@ -246,9 +279,8 @@ public class InputVCR : MonoBehaviour
 				// if playback is more than about 5 frames ahead, of recording, drop some recording frames
 				if ( _currentPlaybackTime > nextFrameTime + Time.deltaTime * 5 )	
 				{
-					Debug.Log ( "Recording behind, skipping frames: Playtime " + _currentPlaybackTime + " Recordtime " + nextFrameTime );
 					_currentPlaybackTime += Time.deltaTime;
-					recordingFrame += 3;
+					_currentPlaybackFrame += 3;
 					yield return 0;
 					continue;
 				}
@@ -263,48 +295,31 @@ public class InputVCR : MonoBehaviour
 				
 				try
 				{	
-					// separate properties
-					string[] inputs = toPlay.frameProperties[recordingFrame].Split ( "{".ToCharArray (), System.StringSplitOptions.RemoveEmptyEntries );
-						
-					for( int i = 0; i < inputs.Length; i++ )
-					{
-						string inputInfo = inputs[i].TrimEnd ( "}".ToCharArray() );
-						
-						int equalInd = inputInfo.IndexOf( '=' );
-						string recordType = inputInfo.Remove ( equalInd );
-						inputInfo = inputInfo.Substring ( equalInd + 1 );
-						
-						switch( recordType )
+					// separate properties & input
+					Dictionary<string, string> frameProperties = toPlay.GetFrame ( currentPlaybackFrame, watchedInputs );
+					
+					foreach( KeyValuePair<string, string> property in frameProperties )
+					{	
+						switch( property.Key )
 						{
 						case "mousepos":
 							mouseIsWatched = true;
-							string[] mouse = inputInfo.Split( ",".ToCharArray() );
+							string[] mouse = property.Value.Split( ",".ToCharArray() );
 							lastMousePosition.x = float.Parse ( mouse[0] );
 							lastMousePosition.y = float.Parse ( mouse[1] );
 							break;
-						case "input":
-							InputInfo newInput = new InputInfo( inputInfo );
-							watchedInputs.Add( newInput.inputName, newInput );
-							break;
 						case "position":
-							watchedProperties.Add ( "position", inputInfo );
+							watchedProperties.Add ( "position", property.Value );
 							if ( snapToSyncedLocation )
-							{
-								string[] pos = inputInfo.Split( ",".ToCharArray () );
-								transform.position = new Vector3( float.Parse ( pos[0]), float.Parse ( pos[1] ), float.Parse ( pos[2] ) );
-							}
+								transform.position = ParseVector3 ( property.Value );
 							break;
 						case "rotation":
-							watchedProperties.Add ( "rotation", inputInfo );
+							watchedProperties.Add ( "rotation", property.Value );
 							if ( snapToSyncedLocation )
-							{
-								Debug.Log ( "Snapping" );
-								string[] rot = inputInfo.Split( ",".ToCharArray () );
-								transform.eulerAngles = new Vector3( float.Parse ( rot[0]), float.Parse ( rot[1] ), float.Parse ( rot[2] ) );
-							}
+								transform.eulerAngles = ParseVector3 ( property.Value );
 							break;
 						default:
-							watchedProperties.Add ( recordType, inputInfo );
+							watchedProperties.Add ( property.Key, property.Value );
 							break;
 						}
 					}
@@ -312,7 +327,8 @@ public class InputVCR : MonoBehaviour
 				catch ( System.Exception e )
 				{
 					Debug.LogWarning ( e.Message );
-					Debug.LogWarning ( toPlay.frameProperties[recordingFrame] );
+					Debug.LogWarning ( currentPlaybackFrame );
+					Debug.LogWarning ( toPlay.frameProperties[currentPlaybackFrame] );
 					watchedInputs = new Dictionary<string, InputInfo>();
 					mouseIsWatched = false;
 					
@@ -322,7 +338,7 @@ public class InputVCR : MonoBehaviour
 				}
 			
 				_currentPlaybackTime += Time.deltaTime;
-				recordingFrame++;
+				_currentPlaybackFrame++;
 				yield return 0;		
 			}
 		}
@@ -427,7 +443,26 @@ public class InputVCR : MonoBehaviour
 				return Input.mousePosition;
 		}
 	}
+	
+	public string GetProperty( string propertyName )
+	{
+		string property;
+		if ( watchedInputs == null || !watchedProperties.TryGetValue ( propertyName, out property ) )
+			return "";
+		
+		return property;
+	}
 	#endregion
+	
+	public static Vector3 ParseVector3( string vectorString )
+	{
+		string[] splitVecString = vectorString.Split( ",".ToCharArray () );
+		float x,y,z;
+		if( splitVecString.Length == 3 && float.TryParse ( splitVecString[0], out x ) && float.TryParse ( splitVecString[1], out y ) && float.TryParse ( splitVecString[2], out z ) )
+			return new UnityEngine.Vector3( x, y, z );
+		
+		return Vector3.zero;
+	}
 }
 
 public enum InputVCRMode
@@ -438,12 +473,25 @@ public enum InputVCRMode
 	Pause
 }
 
-public struct Recording
+public class Recording
 {
 	public List<float> frameTimes;
 	public List<string> frameProperties;
 	
 	public float recordingLength;
+	
+	/// <summary>
+	/// Copies the data in oldRecoding to a new instance of the <see cref="Recording"/> class.
+	/// </summary>
+	/// <param name='oldRecording'>
+	/// Recording to be copied
+	/// </param>
+	public Recording( Recording oldRecording )
+	{
+		frameTimes = new List<float>( oldRecording.frameTimes );
+		frameProperties = new List<string>( oldRecording.frameProperties );
+		recordingLength = new List<string>( oldRecording.recordingLength );
+	}
 	
 	public Recording( string s )
 	{
@@ -453,19 +501,49 @@ public struct Recording
 		if ( s == "" )
 			return;
 		
+		int line = 0;
+		int index = 0;
+		StringBuilder thisLine;
+		
+		while ( index < s.Length )
+		{
+			thisLine = new StringBuilder();
+			char c;
+			while ( index < s.Length && ( c = s[index++] ) != '\n' && c != '\r' )
+			{
+				thisLine.Append ( c );
+			}
+			
+			if ( line == 0 )
+				recordingLength = float.Parse ( thisLine.ToString () );
+			else if ( line % 2 != 0 )
+				frameTimes.Add ( float.Parse ( thisLine.ToString () ) );
+			else
+				frameProperties.Add ( thisLine.ToString () );
+			line++;
+		}
+	}
+	
+	/// <summary>
+	/// Parses the recording. 
+	/// Don't use in Unity! Mono has a bug where this is crazy slow with unix line endings
+	/// </summary>
+	/// <param name='sr'>
+	/// String reader
+	/// </param>
+	void ParseRecording( StringReader sr )
+	{
+		Debug.Log ( "Parsing recording " + Time.realtimeSinceStartup );
 		string currentLine = "";
 		try
 		{
-			StringReader sr = new StringReader( s );
 			currentLine = sr.ReadLine();
 			recordingLength = float.Parse( currentLine );
 			
-			while ( sr.Peek () != -1 )
+			while ( ( currentLine = sr.ReadLine() ) != null )
 			{
-				currentLine = sr.ReadLine();
 				frameTimes.Add ( float.Parse ( currentLine ) );
-				currentLine = sr.ReadLine ();
-				frameProperties.Add ( currentLine );
+				frameProperties.Add ( sr.ReadLine() );
 			}
 		}
 		catch( System.Exception e )
@@ -475,7 +553,47 @@ public struct Recording
 			frameTimes = new List<float>();
 			frameProperties = new List<string>();
 			recordingLength = 0f;
+		}	
+		Debug.Log ( "Finished parsing recording " + Time.realtimeSinceStartup );
+	}
+	
+	public int GetClosestFrame( float toTime )
+	{
+		int closestFrame = 0;
+		while ( closestFrame < frameTimes.Count && frameTimes[closestFrame] < toTime )
+			closestFrame++;
+		
+		return closestFrame;
+	}
+	
+	public Dictionary<string, string> GetFrame( int frameInd, Dictionary<string, InputInfo> inputDict = null )
+	{
+		Dictionary< string, string> frame = new Dictionary<string, string>();
+		string[] properties = frameProperties[frameInd].Split ( "{".ToCharArray (), System.StringSplitOptions.RemoveEmptyEntries );
+		
+		for( int i = 0; i < properties.Length; i++ )
+		{
+			string propertyString = properties[i].TrimEnd ( "}".ToCharArray() );
+			
+			int equalInd = propertyString.IndexOf( '=' );
+			if ( equalInd == -1 )
+				continue;
+			
+			string recordType = propertyString.Remove ( equalInd );		
+			
+			if ( recordType == "input" )
+			{
+				if ( inputDict != null )
+				{
+					InputInfo newInput = new InputInfo( propertyString.Substring ( equalInd + 1 ) );
+					inputDict.Add ( newInput.inputName, newInput );
+				}
+			}
+			else
+				frame.Add ( recordType, propertyString.Substring ( equalInd + 1 ) );
 		}
+		
+		return frame;
 	}
 	
 	public override string ToString()
