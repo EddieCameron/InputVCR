@@ -490,7 +490,7 @@ public class Recording
 	{
 		frameTimes = new List<float>( oldRecording.frameTimes );
 		frameProperties = new List<string>( oldRecording.frameProperties );
-		recordingLength = new List<string>( oldRecording.recordingLength );
+		recordingLength = oldRecording.recordingLength;
 	}
 	
 	public Recording( string s )
