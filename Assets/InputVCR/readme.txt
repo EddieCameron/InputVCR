@@ -1,14 +1,34 @@
 InputVCR README
-Copyright Eddie Cameron 2012
+
 ----------
+
 Record and playback player actions without the fuss.
+
+----------
+
+Licence:
+
+The InputVCR.cs & Recording.cs scripts are open source under the MIT licence. Do what you will with them! 
+LitJson is in the public domain
+
+Copyright (C) 2013 Eddie Cameron
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+----------
 
 Why write a custom recording class for your game, when much of it is identical? InputVCR records 
 inputs you choose to text, then, when you want to replay, will automatically send these inputs to any 
 Gameobject, without having to effect the others.
 You can use InputVCR to record player motion and any actions they take, for match replays, kill cams, 
 puzzles, companions, and more.
+
 ----------
+
 Place on any object you wish to use to record or playback any inputs for
  Switch modes to change current behaviour
    - Passthru : object will use live input commands from player
@@ -25,7 +45,9 @@ otherwise it will just pass through the live input state
 
 Note, InputVCR can't be statically referenced like Input, since you may have multiple objects playing
 different recordings, or an object playing back while another is taking live input...
+
 ----------
+
 Use this snippet in scripts you wish to replace Input with InputVCR, so they can be used in objects without a VCR as well:
  
   private bool useVCR;
@@ -47,14 +69,14 @@ Then Replace any input lines with:
   else
   	<some input value> = Input.GetSomeInput( "someInputName" );
   
-Easy! 
+Easy!
+ 
 -------------
+
 More information and tools at grapefruitgames.com, @eddiecameron, or support@grapefruitgames.com
 
-The InputVCR.cs script is open source under the GNU LGPL licence. Do what you will with it! 
-http://www.gnu.org/licenses/lgpl.txt
-(other scripts are modified Unity stock assets)
 -------------
+
 Version info:
 - v1.0
 Initial release
