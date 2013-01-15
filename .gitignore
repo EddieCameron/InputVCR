@@ -1,0 +1,11 @@
+Library
+*.sln
+*.csproj
+*.pidb
+*.unityproj
+Temp
+*.pdb
+Builds/OSX
+Builds/Win
+Asset Store
+Assets/AssetStoreTools
