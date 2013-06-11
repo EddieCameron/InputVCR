@@ -434,7 +434,7 @@ public class InputVCR : MonoBehaviour
 			
 			if ( _mode == InputVCRMode.Playback )
 			{
-				string mousePos = currentRecording.GetProperty ( currentFrame, "mousepos" );
+				string mousePos = currentRecording.GetProperty ( currentFrame, "mousePos" );
 				if ( !string.IsNullOrEmpty ( mousePos ) )
 				{
 					string[] splitPos = mousePos.Split( ",".ToCharArray() );
