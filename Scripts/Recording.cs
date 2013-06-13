@@ -21,6 +21,97 @@ public class Recording
 
     public float recordingLength{ get { return totalFrames / frameRate; } }
 
+    [System.Serializable]
+    public class RecordingFrame
+    {
+        public List<InputInfo> inputs = new List<InputInfo>();
+        public Dictionary<string,FrameProperty> syncedProperties = new Dictionary<string, FrameProperty>();
+    }
+
+    [System.Serializable]
+    public class InputInfo  // represents state of certain input in one frame. Has to be class for inspector to serialize
+    {
+        public InputType inputType;
+
+        public string inputName;    // from InputManager
+
+        [HideInInspector]
+        public int mouseButtonNum = -1; // only positive if is mouse button
+
+        [HideInInspector]
+        public bool buttonState;
+
+        [HideInInspector]
+        public float axisValue; // not raw value
+
+        public enum InputType
+        {
+            Axis,
+            Button,
+            Key,
+            Mouse
+        }
+
+        public InputInfo()
+        {
+            inputName = "";
+            mouseButtonNum = -1;
+            inputType = InputType.Button;
+            buttonState = false;
+            axisValue = 0f;
+        }
+
+        public InputInfo( InputInfo toCopy )
+        {
+            inputName = toCopy.inputName;
+            inputType = toCopy.inputType;
+
+            mouseButtonNum = toCopy.mouseButtonNum;
+
+            buttonState = toCopy.buttonState;
+            axisValue = toCopy.axisValue;
+        }
+
+        public override bool Equals (object obj)
+        {
+            InputInfo other = obj as InputInfo;
+            return Equals ( other );
+        }
+
+        public bool Equals( InputInfo other )
+        {
+            if ( other == null )
+                return false;
+
+            if ( inputName != other.inputName || inputType != other.inputType || mouseButtonNum != other.mouseButtonNum )
+                return false;
+
+            if ( inputType == InputType.Axis )
+                return axisValue == other.axisValue;
+            else
+                return buttonState == other.buttonState;
+        }
+
+        public override int GetHashCode ()
+        {
+            return base.GetHashCode ();
+        }
+    }
+
+    [System.Serializable]
+    public class FrameProperty
+    {
+        public string name;
+        public string property;
+
+        public FrameProperty( string name, string property )
+        {
+            this.name = name;
+            this.property = property;
+        }
+    }
+
+    #region Constructors
     public Recording()
     {
         this.frameRate = 60;
@@ -32,6 +123,7 @@ public class Recording
         this.frameRate = Mathf.Max( 1, frameRate );
         frames = new List<RecordingFrame>();
     }
+
 	/// <summary>
 	/// Copies the data in oldRecoding to a new instance of the <see cref="Recording"/> class.
 	/// </summary>
@@ -51,6 +143,8 @@ public class Recording
             frames = new List<RecordingFrame>();
         }
     }
+    #endregion
+
 	/// <summary>
 	/// Parses a Recording from saved JSON string
 	/// </summary>
@@ -73,6 +167,7 @@ public class Recording
 		
         return rec;
     }
+
 	/// <summary>
 	/// Gets the closest frame index to a provided time
 	/// </summary>
@@ -86,6 +181,7 @@ public class Recording
     {
         return (int)( toTime * frameRate );
     }
+
 	/// <summary>
 	/// Adds the supplied input info to given frame
 	/// </summary>
@@ -111,31 +207,30 @@ public class Recording
 		
         frames[atFrame].inputs.Add( new InputInfo( inputInfo ) );
     }
+
 	/// <summary>
 	/// Adds a custom property to a given frame
 	/// </summary>
 	/// <param name='atFrame'>
 	/// At frame.
 	/// </param>
-	/// <param name='propertyInfo'>
-	/// Property info.
+	/// <param name='propertyName'>
+	/// Property name.
 	/// </param>
-    public void AddProperty( int atFrame, FrameProperty propertyInfo )
+    /// <param name='propertyValue'>
+    /// Property value as string.
+    /// </param>
+    public void AddProperty( int atFrame, string propertyName, string propertyValue )
     {
         CheckFrame( atFrame );
 		
-        for ( int i = 0; i < frames[atFrame].syncedProperties.Count; i++ )
-        {
-            // no duplicate properties
-            if ( frames[atFrame].syncedProperties[i].name == propertyInfo.name )
-            {
-                frames[atFrame].syncedProperties[i] = propertyInfo;
-                return;
-            }
-        }
-		
-        frames[atFrame].syncedProperties.Add( propertyInfo );
+        FrameProperty existingProp;
+        if ( frames[atFrame].syncedProperties.TryGetValue( propertyName, out existingProp ) )
+            existingProp.property = propertyValue;
+        else
+            frames[atFrame].syncedProperties.Add( propertyName, new FrameProperty( propertyName, propertyValue ) );
     }
+
 	/// <summary>
 	/// Gets the given input at given frame.
 	/// </summary>
@@ -166,6 +261,7 @@ public class Recording
         Debug.LogWarning( "Input " + inputName + " not found in frame " + atFrame );
         return null;
     }
+
 	/// <summary>
 	/// Gets all inputs in a given frame.
 	/// </summary>
@@ -180,11 +276,12 @@ public class Recording
         if ( atFrame < 0 || atFrame >= frames.Count )
         {
             Debug.LogWarning( "Frame " + atFrame + " out of bounds" );
-            return null;
+            return new InputInfo[0];
         }
         else
             return frames[atFrame].inputs.ToArray();
     }
+
 	/// <summary>
 	/// Gets the given custom property if recorded in given frame
 	/// </summary>
@@ -207,19 +304,21 @@ public class Recording
         else
         {
             // iterating to find. Could avoid repeat access time with pre-processing, but would be a waste of memory/GC slowdown? & list is small anyway
-            foreach ( FrameProperty prop in frames[atFrame].syncedProperties )
-                if ( prop.name == propertyName )
-                    return prop.property;
+            FrameProperty frameProp;
+            if ( frames[atFrame].syncedProperties.TryGetValue( propertyName, out frameProp ) )
+                return frameProp.property;
         }
 		
         return null;
     }
+
 	// Make sure this frame has an entry
     void CheckFrame( int frame )
     {
         while ( frame >= frames.Count )
             frames.Add( new RecordingFrame() );
     }
+
 	/// <summary>
 	/// Returns a <see cref="System.String"/> that represents the current <see cref="Recording"/> using JSON
 	/// </summary>
@@ -243,8 +342,6 @@ public class Recording
         {
             writer.WriteObjectStart();
             //{
-            writer.WritePropertyName( "recordTime" );
-            writer.Write( (double)frame.recordTime );
 					
             writer.WritePropertyName( "inputs" );
             writer.WriteArrayStart();
@@ -276,7 +373,7 @@ public class Recording
             writer.WritePropertyName( "syncedProperties" );
             writer.WriteArrayStart();
             //[
-            foreach ( FrameProperty prop in frame.syncedProperties )
+            foreach ( var prop in frame.syncedProperties.Values )
             {
                 writer.WriteObjectStart();
                 //{
@@ -300,93 +397,4 @@ public class Recording
 		
         return jsonB.ToString();
     }
-}
-
-public class RecordingFrame
-{
-    public float recordTime;
-    public List<InputInfo> inputs = new List<InputInfo>();
-    public List<FrameProperty> syncedProperties = new List<FrameProperty>();
-}
-
-[System.Serializable]
-public class InputInfo	// represents state of certain input in one frame. Has to be class for inspector to serialize
-{
-    public InputType inputType;
-
-    public string inputName;    // from InputManager
-
-    [HideInInspector]
-	public int mouseButtonNum = -1; // only positive if is mouse button
-	
-	[HideInInspector]
-	public bool buttonState;
-	
-	[HideInInspector]
-	public float axisValue;	// not raw value
-	
-    public enum InputType
-    {
-        Axis,
-        Button,
-        Key,
-        Mouse
-    }
-
-	public InputInfo()
-	{
-		inputName = "";
-		mouseButtonNum = -1;
-        inputType = InputType.Button;
-		buttonState = false;
-		axisValue = 0f;
-	}
-	
-	public InputInfo( InputInfo toCopy )
-	{
-		inputName = toCopy.inputName;
-        inputType = toCopy.inputType;
-		
-		mouseButtonNum = toCopy.mouseButtonNum;
-		
-		buttonState = toCopy.buttonState;
-		axisValue = toCopy.axisValue;
-	}
-	
-	public override bool Equals (object obj)
-	{
-		InputInfo other = obj as InputInfo;
-		return Equals ( other );
-	}
-	
-	public bool Equals( InputInfo other )
-	{
-		if ( other == null )
-			return false;
-		
-		if ( inputName != other.inputName || inputType != other.inputType || mouseButtonNum != other.mouseButtonNum )
-			return false;
-		
-		if ( inputType == InputType.Axis )
-			return axisValue == other.axisValue;
-		else
-			return buttonState == other.buttonState;
-	}
-	
-	public override int GetHashCode ()
-	{
-		return base.GetHashCode ();
-	}
-}
-
-public struct FrameProperty
-{
-	public string name;
-	public string property;
-	
-	public FrameProperty( string name, string property )
-	{
-		this.name = name;
-		this.property = property;
-	}
 }

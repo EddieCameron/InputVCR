@@ -52,7 +52,6 @@
  * http://www.gnu.org/licenses/lgpl.txt
  * 
  */
-
 using UnityEngine;
 using System.Collections;
 using System.Text;
@@ -62,7 +61,7 @@ using System.Collections.Generic;
 public class InputVCR : MonoBehaviour
 {
 	#region Inspector properties
-    public InputInfo[] inputsToRecord;
+    public Recording.InputInfo[] inputsToRecord;
 // list of axis and button names ( from Input manager) that should be recorded
 	
     public bool recordMouseEvents;
@@ -101,10 +100,10 @@ public class InputVCR : MonoBehaviour
 	}
 	public int currentFrame{ get; private set; }	// current frame of recording/playback
 	
-	Queue<FrameProperty> nextPropertiesToRecord = new Queue<FrameProperty>();	// if SyncLocation or SyncProperty are called, this will hold their results until the recordstring is next written to
+	Queue<Recording.FrameProperty> nextPropertiesToRecord = new Queue<Recording.FrameProperty>();	// if SyncLocation or SyncProperty are called, this will hold their results until the recordstring is next written to
 		
-	Dictionary<string, InputInfo> lastFrameInputs = new Dictionary<string, InputInfo>();	// list of inputs from last frame (for seeing what buttons have changed state)
-	Dictionary<string, InputInfo> thisFrameInputs = new Dictionary<string, InputInfo>();
+	Dictionary<string, Recording.InputInfo> lastFrameInputs = new Dictionary<string, Recording.InputInfo>();	// list of inputs from last frame (for seeing what buttons have changed state)
+	Dictionary<string, Recording.InputInfo> thisFrameInputs = new Dictionary<string, Recording.InputInfo>();
 		
 	float playbackTime;
 	
@@ -164,7 +163,7 @@ public class InputVCR : MonoBehaviour
 	/// </param>
 	public void Play( Recording recording, float startRecordingFromTime = 0 )
 	{	
-		currentRecording = new Recording( recording );
+		currentRecording = recording;
 		currentFrame = recording.GetClosestFrame ( startRecordingFromTime );
 		
 		thisFrameInputs.Clear ();
@@ -221,7 +220,7 @@ public class InputVCR : MonoBehaviour
 	public void SyncProperty( string propertyName, string propertyValue )
 	{
 		// duplicates dealt with when recorded
-		FrameProperty frameProp = new FrameProperty( propertyName, propertyValue );
+		var frameProp = new Recording.FrameProperty( propertyName, propertyValue );
 		if ( !nextPropertiesToRecord.Contains ( frameProp ) )
 			nextPropertiesToRecord.Enqueue ( frameProp );
 	}
@@ -234,7 +233,7 @@ public class InputVCR : MonoBehaviour
 	/// </returns>
 	public Recording GetRecording()
 	{
-		return new Recording( currentRecording );
+        return currentRecording;
 	}
 	
 	void LateUpdate()
@@ -258,10 +257,10 @@ public class InputVCR : MonoBehaviour
 			else
 			{
 				// go through all changes in recorded input since last frame
-				var changedInputs = new Dictionary<string, InputInfo>();
+				var changedInputs = new Dictionary<string, Recording.InputInfo>();
 				for( int frame = lastFrame + 1; frame <= currentFrame; frame++ )
-				{
-					foreach( InputInfo input in currentRecording.GetInputs ( frame ) )
+                {
+					foreach( var input in currentRecording.GetInputs ( frame ) )
 					{
 						// thisFrameInputs only updated once per game frame, so all changes, no matter how brief, will be marked
 						// if button has changed
@@ -287,7 +286,7 @@ public class InputVCR : MonoBehaviour
 				}
 				
 				// update input to be used tihs frame
-				foreach( KeyValuePair<string, InputInfo> changedInput in changedInputs )
+				foreach( var changedInput in changedInputs )
 				{
 					if ( thisFrameInputs.ContainsKey ( changedInput.Key ) )
 						thisFrameInputs[changedInput.Key] = changedInput.Value;
@@ -307,12 +306,12 @@ public class InputVCR : MonoBehaviour
 				// mouse position & buttons if required
 				if ( recordMouseEvents )
 				{
-					currentRecording.AddProperty( currentFrame, new FrameProperty( "mousePos", Input.mousePosition.x.ToString() + "," + Input.mousePosition.y ) );
+					currentRecording.AddProperty( currentFrame, "mousePos", Input.mousePosition.x.ToString() + "," + Input.mousePosition.y );
 					
 					for( int i = 0; i < 3; i++ )
 					{
-						InputInfo mouseInput = new InputInfo();
-                        mouseInput.inputType = InputInfo.InputType.Mouse;
+						var mouseInput = new Recording.InputInfo();
+                        mouseInput.inputType = Recording.InputInfo.InputType.Mouse;
 						mouseInput.inputName = "mousebutton" + i;
 						mouseInput.mouseButtonNum = i;
                         mouseInput.buttonState = Input.GetMouseButton( i );
@@ -322,17 +321,17 @@ public class InputVCR : MonoBehaviour
 				}
 
                 // and keycodes & buttons defined in inputsToRecord
-				foreach( InputInfo input in inputsToRecord )
+				foreach( var input in inputsToRecord )
 				{
                     switch ( input.inputType )
                     {
-                    case InputInfo.InputType.Axis:
+                    case Recording.InputInfo.InputType.Axis:
                         input.axisValue = Input.GetAxis( input.inputName );
                         break;
-                    case InputInfo.InputType.Button:
+                    case Recording.InputInfo.InputType.Button:
                         input.buttonState = Input.GetButton( input.inputName );
                         break;
-                    case InputInfo.InputType.Key:
+                    case Recording.InputInfo.InputType.Key:
                         input.buttonState = Input.GetKey( input.inputName );
                         break;
 
@@ -352,8 +351,8 @@ public class InputVCR : MonoBehaviour
 				}
 				
 				// and any other properties
-				foreach( FrameProperty prop in nextPropertiesToRecord )
-					currentRecording.AddProperty ( currentFrame, prop );
+				foreach( var prop in nextPropertiesToRecord )
+					currentRecording.AddProperty ( currentFrame, prop.name, prop.property );
 				nextPropertiesToRecord.Clear ();
 				
 				currentFrame++;
