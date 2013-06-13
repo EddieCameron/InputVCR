@@ -88,7 +88,7 @@ public class PlayButton : MonoBehaviour
 		
 		Debug.Log ( recording.ToString () );
 		curPlayer = (InputVCR)Instantiate ( playbackCharacterPrefab, recordingStartPos, recordingStartRot );
-		curPlayer.Play ( Recording.ParseRecording( recording.ToString() ) );
+		curPlayer.Play ( recording );
 		SwapTex ();
 		
 		float playTime = recording.recordingLength;

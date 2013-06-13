@@ -51,7 +51,7 @@
  * This script is open source under the GNU LGPL licence. Do what you will with it! 
  * http://www.gnu.org/licenses/lgpl.txt
  * 
- */ 
+ */
 
 using UnityEngine;
 using System.Collections;
@@ -59,21 +59,23 @@ using System.Text;
 using System.IO;
 using System.Collections.Generic;
 
-public class InputVCR : MonoBehaviour 
+public class InputVCR : MonoBehaviour
 {
-
 	#region Inspector properties
-	public InputInfo[] inputsToRecord;  // list of axis and button names ( from Input manager) that should be recorded
+    public InputInfo[] inputsToRecord;
+// list of axis and button names ( from Input manager) that should be recorded
 	
-	public bool recordMouseEvents;		// whether mouse position/button states should be recorded each frame (mouse axes are separate from this)
+    public bool recordMouseEvents;
+// whether mouse position/button states should be recorded each frame (mouse axes are separate from this)
 	
-	public bool syncRecordLocations = true;	// whether position/rotation info is stored automatically
-	public float autoSyncLocationRate = 1f;
-	public bool snapToSyncedLocation = true;	// whether this transform will snap to recorded locations, or left accessible for your own handling
+    public bool syncRecordLocations = true;
+// whether position/rotation info is stored automatically
+    public float autoSyncLocationRate = 1f;
+    public bool snapToSyncedLocation = true;
+// whether this transform will snap to recorded locations, or left accessible for your own handling
 	
-	public int recordingFrameRate = 60;
-	
-	[SerializeField]
+    public int recordingFrameRate = 60;
+    [SerializeField]
 	private InputVCRMode _mode = InputVCRMode.Passthru; // initial mode that vcr is operating in
 	public InputVCRMode mode
 	{
@@ -310,20 +312,35 @@ public class InputVCR : MonoBehaviour
 					for( int i = 0; i < 3; i++ )
 					{
 						InputInfo mouseInput = new InputInfo();
+                        mouseInput.inputType = InputInfo.InputType.Mouse;
 						mouseInput.inputName = "mousebutton" + i;
-						mouseInput.isAxis = false;
 						mouseInput.mouseButtonNum = i;
+                        mouseInput.buttonState = Input.GetMouseButton( i );
+
 						currentRecording.AddInput ( currentFrame, mouseInput );
 					}
 				}
-				
-				// and buttons
+
+                // and keycodes & buttons defined in inputsToRecord
 				foreach( InputInfo input in inputsToRecord )
 				{
-					if ( input.isAxis )
-						input.axisValue = Input.GetAxis ( input.inputName );
-					else if ( input.mouseButtonNum >= 0 )	// mouse buttons recorded above 
-						input.buttonState = Input.GetButton ( input.inputName );
+                    switch ( input.inputType )
+                    {
+                    case InputInfo.InputType.Axis:
+                        input.axisValue = Input.GetAxis( input.inputName );
+                        break;
+                    case InputInfo.InputType.Button:
+                        input.buttonState = Input.GetButton( input.inputName );
+                        break;
+                    case InputInfo.InputType.Key:
+                        input.buttonState = Input.GetKey( input.inputName );
+                        break;
+
+                    default:
+                        Debug.Log( "Unsupported input type : " + input.inputType );
+                        break;
+                    }
+
 					currentRecording.AddInput ( currentFrame, input );
 				}
 				
@@ -346,6 +363,39 @@ public class InputVCR : MonoBehaviour
 	
 	// These methods replace those in Input, so that this object can ignore whether it is record
 	#region Input replacements
+    public bool GetKey( string keyName )
+    {
+        if ( _mode == InputVCRMode.Pause )
+            return false;
+
+        if ( _mode == InputVCRMode.Playback && thisFrameInputs.ContainsKey ( keyName ) )
+            return thisFrameInputs[keyName].buttonState;
+        else
+            return Input.GetKey ( keyName );
+    }
+
+    public bool GetKeyDown( string keyName )
+    {
+        if ( _mode == InputVCRMode.Pause )
+            return false;
+
+        if ( _mode == InputVCRMode.Playback && thisFrameInputs.ContainsKey( keyName ) )
+            return ( thisFrameInputs[keyName].buttonState && ( lastFrameInputs == null || !lastFrameInputs.ContainsKey ( keyName ) || !lastFrameInputs[keyName].buttonState ) );
+        else
+            return Input.GetKeyDown ( keyName );
+    }
+
+    public bool GetKeyUp( string keyName )
+    {
+        if ( _mode == InputVCRMode.Pause )
+            return false;
+
+        if ( _mode == InputVCRMode.Playback && thisFrameInputs.ContainsKey( keyName ) )
+            return ( !thisFrameInputs[keyName].buttonState && ( lastFrameInputs == null || !lastFrameInputs.ContainsKey ( keyName ) || lastFrameInputs[keyName].buttonState ) );
+        else
+            return Input.GetKeyUp ( keyName );
+    }
+
 	public bool GetButton( string buttonName )
 	{
 		if ( _mode == InputVCRMode.Pause )
