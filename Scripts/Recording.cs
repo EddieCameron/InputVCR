@@ -104,6 +104,11 @@ public class Recording
         public string name;
         public string property;
 
+        public FrameProperty()
+        {
+            // for Json reader... 
+        }
+
         public FrameProperty( string name, string property )
         {
             this.name = name;
@@ -371,22 +376,23 @@ public class Recording
             writer.WriteArrayEnd();
 					
             writer.WritePropertyName( "syncedProperties" );
-            writer.WriteArrayStart();
+            writer.WriteObjectStart();
             //[
-            foreach ( var prop in frame.syncedProperties.Values )
+            foreach ( var prop in frame.syncedProperties )
             {
+                writer.WritePropertyName( prop.Key );
                 writer.WriteObjectStart();
                 //{
                 writer.WritePropertyName( "name" );
-                writer.Write( prop.name );
-						
+                writer.Write( prop.Value.name );
+
                 writer.WritePropertyName( "property" );
-                writer.Write( prop.property );
+                writer.Write( prop.Value.property );
                 //}
                 writer.WriteObjectEnd();
             }
             //]
-            writer.WriteArrayEnd();
+            writer.WriteObjectEnd();
             //}
             writer.WriteObjectEnd();
         }
