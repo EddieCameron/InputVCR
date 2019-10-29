@@ -1,25 +1,8 @@
-InputVCR README
+# InputVCR README
 
-----------
+## Record and playback player actions without the fuss.
 
-Record and playback player actions without the fuss.
-
-----------
-
-Licence:
-
-The InputVCR.cs & Recording.cs scripts are open source under the MIT licence. Do what you will with them! 
-LitJson is in the public domain
-
-Copyright (C) 2013 Eddie Cameron
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-----------
+### What
 
 Why write a custom recording class for your game, when much of it is identical? InputVCR records 
 inputs you choose to text, then, when you want to replay, will automatically send these inputs to any 
@@ -27,7 +10,7 @@ Gameobject, without having to effect the others.
 You can use InputVCR to record player motion and any actions they take, for match replays, kill cams, 
 puzzles, companions, and more.
 
-----------
+### How
 
 Place on any object you wish to use to record or playback any inputs for
  Switch modes to change current behaviour
@@ -71,22 +54,5 @@ Then Replace any input lines with:
   
 Easy!
  
--------------
-
-More information and tools at grapefruitgames.com, @eddiecameron, or support@grapefruitgames.com
-
--------------
-
-Version info:
-- v1.0
-Initial release
-
-- v1.1
-Added option to sync position/rotation
-Added check to make sure recording stays close to realtime (in case recording/playback frame rates are different)
-More robust Recording format
-
-- v1.2 _MAJOR UPDATE. INCOMPATIBLE WITH OLDER VERSIONS! (but way easier to use)
-Switched to JSON storage and parsing. WAAAAAAAAAAAY more reliable than mine
-Recording and playback now completely framerate independent
-General cleanup of code + commenting and other help
+### Info
+More information and tools at eddiecameron.fun, @eddiecameron, or support@grapefruitgames.com

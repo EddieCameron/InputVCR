@@ -1,0 +1,16 @@
+{
+    "name": "com.eddiecameron.inputvcr",
+    "version": "2.0.0",
+    "displayName": "Input VCR",
+    "description": "Record and playback player actions without the fuss.",
+   "keywords": [
+      "Input",
+      "Recording",
+      "Playback"
+    ],
+    "author": {
+      "name": "Eddie Cameron",
+      "email": "eddie@eddiecameron.fun",
+      "url": "https://eddiecameron.fun"
+    }
+  }
