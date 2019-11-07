@@ -1,0 +1,14 @@
+{
+    "name": "InputVCR-Examples",
+    "references": [
+        "GUID:dab65278143d24f128fdccc4cf61752a"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": []
+}

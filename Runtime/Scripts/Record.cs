@@ -107,7 +107,7 @@ namespace InputVCR {
         }
 
         public void ClearFrames( int startFrame = 0 ) {
-            if ( startFrame == 0 )
+            if ( startFrame <= 0 )
                 frames.Clear();
             else if ( startFrame < frames.Count )
                 frames.RemoveRange( startFrame, frames.Count - startFrame );
@@ -269,7 +269,7 @@ namespace InputVCR {
         /// </summary>
         /// <param name="frame"></param>
         Frame GetFrame( int frameIdx ) {
-            if ( frameIdx < 0 || frameIdx > frames.Count )
+            if ( frameIdx < 0 || frameIdx >= frames.Count )
                 throw new ArgumentException( "Tried to get frame outside recorded range" );
             return frames[frameIdx];
         }
