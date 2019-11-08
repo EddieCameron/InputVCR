@@ -103,7 +103,7 @@ namespace InputVCR {
         /// Holds info about the playback/record state. eg: playback time
         /// </summary>
         RecordingState recordingState;     // the recording currently in the VCR. Copy or ToString() this to save.
-        public Record CurrentRecord => recordingState == null ? null : recordingState.targetRecording;
+        public Recording CurrentRecording => recordingState == null ? null : recordingState.targetRecording;
         public float CurrentPlaybackTime {
             get {
                 return recordingState == null ? 0 : recordingState.Time;
@@ -120,23 +120,35 @@ namespace InputVCR {
             }
         }
 
-        Queue<Record.FrameProperty> nextPropertiesToRecord = new Queue<Record.FrameProperty>();   // if SyncLocation or SyncProperty are called, this will hold their results until the recordstring is next written to
+        Queue<Recording.FrameProperty> nextPropertiesToRecord = new Queue<Recording.FrameProperty>();   // if SyncLocation or SyncProperty are called, this will hold their results until the recordstring is next written to
 
-        Dictionary<string, Record.InputState> lastFrameInputs = new Dictionary<string, Record.InputState>();    // list of inputs from last frame (for seeing what buttons have changed state)
-        Dictionary<string, Record.InputState> thisFrameInputs = new Dictionary<string, Record.InputState>();
-        Dictionary<string, Record.FrameProperty> thisFrameProperties = new Dictionary<string, Record.FrameProperty>();
+        Dictionary<string, Recording.InputState> lastFrameInputs = new Dictionary<string, Recording.InputState>();    // list of inputs from last frame (for seeing what buttons have changed state)
+        Dictionary<string, Recording.InputState> thisFrameInputs = new Dictionary<string, Recording.InputState>();
+        Dictionary<string, Recording.FrameProperty> thisFrameProperties = new Dictionary<string, Recording.FrameProperty>();
 
         public event System.Action finishedPlayback;    // sent when playback finishes
 
         /// <summary>
-        /// Start recording. Will append to current Record, wiping all data after current playback time
+        /// Start recording. Will append to current Recording, wiping all data after current playback time
         /// </summary>
         public void Record() {
             Record( forceNewRecording: false );
         }
 
         /// <summary>
-        /// Start recording, any current Record will be wiped and a new recording begun
+        /// Start recording onto the provided Recording. Any frames after the given startRecordingFromTime will be wiped
+        /// </summary>
+        /// <param name="appendRecording"></param>
+        /// <param name="startRecordingFromTime"></param>
+        public void Record( Recording appendRecording, float startRecordingFromTime ) {
+            recordingState = new RecordingState( appendRecording );
+            recordingState.SkipToTime( startRecordingFromTime );
+
+            Record( forceNewRecording: false );
+        }
+
+        /// <summary>
+        /// Start recording, any current Recording will be wiped and a new recording begun
         /// </summary>
         public void RecordNew() {
             Record( forceNewRecording: true );
@@ -144,7 +156,7 @@ namespace InputVCR {
 
         void Record( bool forceNewRecording ) {
             if ( forceNewRecording || recordingState == null ) {
-                recordingState = new RecordingState( new Record() );
+                recordingState = new RecordingState( new Recording() );
                 nextPropertiesToRecord.Clear();
             }
             else {
@@ -157,7 +169,7 @@ namespace InputVCR {
         }
 
         /// <summary>
-        /// Start or resume playing back the current Record, if present.
+        /// Start or resume playing back the current Recording, if present.
         /// </summary>
         public void Play() {
             if ( Mode != InputVCRMode.Playback ) {
@@ -168,15 +180,15 @@ namespace InputVCR {
         }
 
         /// <summary>
-        /// Play the specified Record, from optional specified time
+        /// Play the specified Recording, from optional specified time
         /// </summary>
-        /// <param name='record'>
+        /// <param name='recording'>
         /// Recording.
         /// </param>
         /// <param name='startPlaybackFromTime'>
         /// </param>
-        public void PlayNew( Record record, float startPlaybackFromTime = 0 ) {
-            recordingState = new RecordingState( record );
+        public void Play( Recording recording, float startPlaybackFromTime = 0 ) {
+            recordingState = new RecordingState( recording );
             recordingState.SkipToTime( startPlaybackFromTime );
 
             ClearInput();
@@ -201,9 +213,18 @@ namespace InputVCR {
         /// <summary>
         /// Stop recording or playback. Live input will be passed through
         /// </summary>
-        public void RevertToPassthrough() {
+        public void Stop() {
             Mode = InputVCRMode.Passthru;
             ClearInput();
+        }
+
+        /// <summary>
+        /// Stop playback or recording, if present, and load a recording
+        /// </summary>
+        /// <param name="newRecording"></param>
+        public void LoadRecording( Recording newRecording ) {
+            Stop();
+            recordingState = new RecordingState( newRecording );
         }
 
         /// <summary>
@@ -218,7 +239,7 @@ namespace InputVCR {
         /// </param>
         public void SaveProperty( string propertyName, string propertyValue ) {
             // duplicates dealt with when recorded
-            var frameProp = new Record.FrameProperty( propertyName, propertyValue );
+            var frameProp = new Recording.FrameProperty( propertyName, propertyValue );
             if ( !nextPropertiesToRecord.Contains( frameProp ) )
                 nextPropertiesToRecord.Enqueue( frameProp );
         }
@@ -236,15 +257,15 @@ namespace InputVCR {
             }
         }
 
-        List<Record.InputState> _inputStateCache = new List<Record.InputState>();
-        List<Record.FrameProperty> _propCache = new List<Record.FrameProperty>();
+        List<Recording.InputState> _inputStateCache = new List<Recording.InputState>();
+        List<Recording.FrameProperty> _propCache = new List<Recording.FrameProperty>();
         void AdvancePlayback( float delta ) {
             int lastFrameIdx = recordingState.FrameIdx;
             recordingState.AdvanceByTime( delta );
             if ( recordingState.Time > recordingState.targetRecording.Length ) {
                 // reached end of recording
                 finishedPlayback?.Invoke();
-                RevertToPassthrough();
+                Stop();
                 return;
             }
 
@@ -282,26 +303,26 @@ namespace InputVCR {
 
             // mouse
             if ( recordMouseEvents ) {
-                recordingState.AddInputToCurrentFrame( new Record.InputState( GetMouseButtonId( 0 ), Input.GetMouseButton( 0 ) ) );
-                recordingState.AddInputToCurrentFrame( new Record.InputState( GetMouseButtonId( 1 ), Input.GetMouseButton( 1 ) ) );
-                recordingState.AddInputToCurrentFrame( new Record.InputState( GetMouseButtonId( 2 ), Input.GetMouseButton( 2 ) ) );
-                recordingState.AddInputToCurrentFrame( new Record.InputState( _MOUSE_POS_X_ID, Input.mousePosition.x ) );
-                recordingState.AddInputToCurrentFrame( new Record.InputState( _MOUSE_POS_Y_ID, Input.mousePosition.y ) );
+                recordingState.AddInputToCurrentFrame( new Recording.InputState( GetMouseButtonId( 0 ), Input.GetMouseButton( 0 ) ) );
+                recordingState.AddInputToCurrentFrame( new Recording.InputState( GetMouseButtonId( 1 ), Input.GetMouseButton( 1 ) ) );
+                recordingState.AddInputToCurrentFrame( new Recording.InputState( GetMouseButtonId( 2 ), Input.GetMouseButton( 2 ) ) );
+                recordingState.AddInputToCurrentFrame( new Recording.InputState( _MOUSE_POS_X_ID, Input.mousePosition.x ) );
+                recordingState.AddInputToCurrentFrame( new Recording.InputState( _MOUSE_POS_Y_ID, Input.mousePosition.y ) );
             }
 
             // buttons
             foreach ( var buttonName in _recordedButtons ) {
-                recordingState.AddInputToCurrentFrame( new Record.InputState( buttonName, Input.GetButton( buttonName ) ) );
+                recordingState.AddInputToCurrentFrame( new Recording.InputState( buttonName, Input.GetButton( buttonName ) ) );
             }
 
             // axes
             foreach ( var axisName in _recordedAxes ) {
-                recordingState.AddInputToCurrentFrame( new Record.InputState( axisName, Input.GetAxis( axisName ) ) );
+                recordingState.AddInputToCurrentFrame( new Recording.InputState( axisName, Input.GetAxis( axisName ) ) );
             }
 
             // keys
             foreach ( var keyCode in _recordedKeys ) {
-                recordingState.AddInputToCurrentFrame( new Record.InputState( GetKeyCodeId( keyCode ), Input.GetKey( keyCode ) ) );
+                recordingState.AddInputToCurrentFrame( new Recording.InputState( GetKeyCodeId( keyCode ), Input.GetKey( keyCode ) ) );
             }
 
             // properties
@@ -327,7 +348,7 @@ namespace InputVCR {
 
         public bool GetKey( string keyName ) {
             if ( Mode == InputVCRMode.Playback ) {
-                return thisFrameInputs.TryGetValue( keyName, out Record.InputState thisFrameState ) && thisFrameState.buttonState;
+                return thisFrameInputs.TryGetValue( keyName, out Recording.InputState thisFrameState ) && thisFrameState.buttonState;
             }
 
             return Input.GetKey( keyName );
@@ -336,8 +357,8 @@ namespace InputVCR {
         public bool GetKeyDown( KeyCode key ) => GetKeyDown( GetKeyCodeId( key ) );
         public bool GetKeyDown( string keyName ) {
             if ( Mode == InputVCRMode.Playback ) {
-                bool lastFrameButtonDown = lastFrameInputs.TryGetValue( keyName, out Record.InputState lastFrameState ) && lastFrameState.buttonState;
-                bool thisFrameButtonDown = thisFrameInputs.TryGetValue( keyName, out Record.InputState thisFrameState ) && thisFrameState.buttonState;
+                bool lastFrameButtonDown = lastFrameInputs.TryGetValue( keyName, out Recording.InputState lastFrameState ) && lastFrameState.buttonState;
+                bool thisFrameButtonDown = thisFrameInputs.TryGetValue( keyName, out Recording.InputState thisFrameState ) && thisFrameState.buttonState;
                 return thisFrameButtonDown && !lastFrameButtonDown;
             }
 
@@ -347,8 +368,8 @@ namespace InputVCR {
         public bool GetKeyUp( KeyCode key ) => GetKeyUp( GetKeyCodeId( key ) );
         public bool GetKeyUp( string keyName ) {
             if ( Mode == InputVCRMode.Playback ) {
-                bool lastFrameButtonDown = lastFrameInputs.TryGetValue( keyName, out Record.InputState lastFrameState ) && lastFrameState.buttonState;
-                bool thisFrameButtonDown = thisFrameInputs.TryGetValue( keyName, out Record.InputState thisFrameState ) && thisFrameState.buttonState;
+                bool lastFrameButtonDown = lastFrameInputs.TryGetValue( keyName, out Recording.InputState lastFrameState ) && lastFrameState.buttonState;
+                bool thisFrameButtonDown = thisFrameInputs.TryGetValue( keyName, out Recording.InputState thisFrameState ) && thisFrameState.buttonState;
                 return !thisFrameButtonDown && lastFrameButtonDown;
             }
 
@@ -357,7 +378,7 @@ namespace InputVCR {
 
         public bool GetButton( string buttonName ) {
             if ( Mode == InputVCRMode.Playback ) {
-                return thisFrameInputs.TryGetValue( buttonName, out Record.InputState thisFrameState ) && thisFrameState.buttonState;
+                return thisFrameInputs.TryGetValue( buttonName, out Recording.InputState thisFrameState ) && thisFrameState.buttonState;
             }
 
             return Input.GetButton( buttonName );
@@ -365,8 +386,8 @@ namespace InputVCR {
 
         public bool GetButtonDown( string buttonName ) {
             if ( Mode == InputVCRMode.Playback ) {
-                bool lastFrameButtonDown = lastFrameInputs.TryGetValue( buttonName, out Record.InputState lastFrameState ) && lastFrameState.buttonState;
-                bool thisFrameButtonDown = thisFrameInputs.TryGetValue( buttonName, out Record.InputState thisFrameState ) && thisFrameState.buttonState;
+                bool lastFrameButtonDown = lastFrameInputs.TryGetValue( buttonName, out Recording.InputState lastFrameState ) && lastFrameState.buttonState;
+                bool thisFrameButtonDown = thisFrameInputs.TryGetValue( buttonName, out Recording.InputState thisFrameState ) && thisFrameState.buttonState;
                 return thisFrameButtonDown && !lastFrameButtonDown;
             }
 
@@ -375,8 +396,8 @@ namespace InputVCR {
 
         public bool GetButtonUp( string buttonName ) {
             if ( Mode == InputVCRMode.Playback ) {
-                bool lastFrameButtonDown = lastFrameInputs.TryGetValue( buttonName, out Record.InputState lastFrameState ) && lastFrameState.buttonState;
-                bool thisFrameButtonDown = thisFrameInputs.TryGetValue( buttonName, out Record.InputState thisFrameState ) && thisFrameState.buttonState;
+                bool lastFrameButtonDown = lastFrameInputs.TryGetValue( buttonName, out Recording.InputState lastFrameState ) && lastFrameState.buttonState;
+                bool thisFrameButtonDown = thisFrameInputs.TryGetValue( buttonName, out Recording.InputState thisFrameState ) && thisFrameState.buttonState;
                 return !thisFrameButtonDown && lastFrameButtonDown;
             }
 
@@ -385,7 +406,7 @@ namespace InputVCR {
 
         public float GetAxis( string axisName ) {
             if ( Mode == InputVCRMode.Playback ) {
-                if ( thisFrameInputs.TryGetValue( axisName, out Record.InputState thisFrameState ) )
+                if ( thisFrameInputs.TryGetValue( axisName, out Recording.InputState thisFrameState ) )
                     return thisFrameState.axisValue;
                 else
                     return 0;
@@ -396,7 +417,7 @@ namespace InputVCR {
 
         public bool GetMouseButton( int buttonNum ) {
             if ( Mode == InputVCRMode.Playback ) {
-                return thisFrameInputs.TryGetValue( GetMouseButtonId( buttonNum ), out Record.InputState thisFrameState ) && thisFrameState.buttonState;
+                return thisFrameInputs.TryGetValue( GetMouseButtonId( buttonNum ), out Recording.InputState thisFrameState ) && thisFrameState.buttonState;
             }
 
             return Input.GetMouseButton( buttonNum );
@@ -405,8 +426,8 @@ namespace InputVCR {
         public bool GetMouseButtonDown( int buttonNum ) {
             if ( Mode == InputVCRMode.Playback ) {
                 string buttonId = GetMouseButtonId( buttonNum );
-                bool lastFrameButtonDown = lastFrameInputs.TryGetValue( buttonId, out Record.InputState lastFrameState ) && lastFrameState.buttonState;
-                bool thisFrameButtonDown = thisFrameInputs.TryGetValue( buttonId, out Record.InputState thisFrameState ) && thisFrameState.buttonState;
+                bool lastFrameButtonDown = lastFrameInputs.TryGetValue( buttonId, out Recording.InputState lastFrameState ) && lastFrameState.buttonState;
+                bool thisFrameButtonDown = thisFrameInputs.TryGetValue( buttonId, out Recording.InputState thisFrameState ) && thisFrameState.buttonState;
                 return thisFrameButtonDown && !lastFrameButtonDown;
             }
 
@@ -416,8 +437,8 @@ namespace InputVCR {
         public bool GetMouseButtonUp( int buttonNum ) {
             if ( Mode == InputVCRMode.Playback ) {
                 string buttonId = GetMouseButtonId( buttonNum );
-                bool lastFrameButtonDown = lastFrameInputs.TryGetValue( buttonId, out Record.InputState lastFrameState ) && lastFrameState.buttonState;
-                bool thisFrameButtonDown = thisFrameInputs.TryGetValue( buttonId, out Record.InputState thisFrameState ) && thisFrameState.buttonState;
+                bool lastFrameButtonDown = lastFrameInputs.TryGetValue( buttonId, out Recording.InputState lastFrameState ) && lastFrameState.buttonState;
+                bool thisFrameButtonDown = thisFrameInputs.TryGetValue( buttonId, out Recording.InputState thisFrameState ) && thisFrameState.buttonState;
                 return !thisFrameButtonDown && lastFrameButtonDown;
             }
 
@@ -427,8 +448,8 @@ namespace InputVCR {
         public Vector3 mousePosition {
             get {
                 if ( Mode == InputVCRMode.Playback ) {
-                    float mouseX = thisFrameInputs.TryGetValue( _MOUSE_POS_X_ID, out Record.InputState thisFrameXState ) ? thisFrameXState.axisValue : 0;
-                    float mouseY = thisFrameInputs.TryGetValue( _MOUSE_POS_Y_ID, out Record.InputState thisFrameYState ) ? thisFrameYState.axisValue : 0;
+                    float mouseX = thisFrameInputs.TryGetValue( _MOUSE_POS_X_ID, out Recording.InputState thisFrameXState ) ? thisFrameXState.axisValue : 0;
+                    float mouseY = thisFrameInputs.TryGetValue( _MOUSE_POS_Y_ID, out Recording.InputState thisFrameYState ) ? thisFrameYState.axisValue : 0;
                     return new Vector3( mouseX, mouseY, 0 );
                 }
 
@@ -437,7 +458,7 @@ namespace InputVCR {
         }
 
         public string GetProperty( string propertyName ) {
-            if ( thisFrameProperties.TryGetValue( propertyName, out Record.FrameProperty frameProp ) )
+            if ( thisFrameProperties.TryGetValue( propertyName, out Recording.FrameProperty frameProp ) )
                 return frameProp.value;
             else
                 return string.Empty;
@@ -456,17 +477,34 @@ namespace InputVCR {
             return KeycodeHelper.KeycodeToKeyString( kc );
         }
 
+        #region IO Helpers
+        public void PlayRecordingFromDisk( string path, float startPlaybackFromTime = 0 ) {
+            string fileString = File.ReadAllText( path );
+            Recording r = new Recording( path );
+            Play( r, startPlaybackFromTime );
+        }
+
+        public void WriteCurrentRecordToDisk( string path ) {
+            if ( CurrentRecording == null ) {
+                throw new InvalidDataException( "No record to save" );
+            }
+
+            string recordJson = CurrentRecording.ToJson();
+            File.WriteAllText( path, recordJson );
+        }
+        #endregion
+
         /// <summary>
         /// Holds playback/record state info for a Recording
         /// </summary>
         class RecordingState {
-            public readonly Record targetRecording;
+            public readonly Recording targetRecording;
 
             public float Time { get; private set; }
 
             public int FrameIdx { get; private set; } = -1;
 
-            public RecordingState( Record recording ) {
+            public RecordingState( Recording recording ) {
                 targetRecording = recording;
             }
 
@@ -486,11 +524,11 @@ namespace InputVCR {
                 this.FrameIdx = targetRecording.FrameCount - 1;
             }
 
-            public void AddInputToCurrentFrame( Record.InputState inputState ) {
+            public void AddInputToCurrentFrame( Recording.InputState inputState ) {
                 targetRecording.AddInput( this.FrameIdx, inputState );
             }
 
-            public void AddPropertyToCurrentFrame( Record.FrameProperty frameProperty ) {
+            public void AddPropertyToCurrentFrame( Recording.FrameProperty frameProperty ) {
                 targetRecording.AddProperty( this.FrameIdx, frameProperty );
             }
 

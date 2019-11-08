@@ -1,4 +1,4 @@
-/* Record.cs
+﻿/* Recording.cs
  * Copyright Eddie Cameron 2019 (See readme for licence)
  * ----------------------------
  * Class for transferring and parsing InputVCR Recordings. Think of it as a VHS cassete, but fancier
@@ -13,9 +13,13 @@ using System;
 
 namespace InputVCR {
     [Serializable]
-    public class Record {
+    public class Recording : ISerializationCallbackReceiver {
         [SerializeField]
         private List<Frame> frames = new List<Frame>();
+
+        [SerializeField]
+        private int _schemaVersion = _CURRENT_JSON_SCHEMA_VERSION;      // make sure schema version is in the JSON
+        private const int _CURRENT_JSON_SCHEMA_VERSION = 1;
 
         public int FrameCount => frames.Count;
 
@@ -77,16 +81,20 @@ namespace InputVCR {
         }
 
         #region Constructors
-        public Record() {
+        public Recording() {
+        }
+
+        public Recording( string jsonRecording ) {
+            JsonUtility.FromJsonOverwrite( jsonRecording, this );
         }
 
         /// <summary>
-        /// Copies the data in oldRecoding to a new instance of the <see cref="Record"/> class.
+        /// Copies the data in oldRecoding to a new instance of the <see cref="Recording"/> class.
         /// </summary>
         /// <param name='oldRecording'>
         /// Recording to be copied
         /// </param>
-        public Record( Record oldRecording ) {
+        public Recording( Recording oldRecording ) {
             if ( oldRecording == null )
                 return;
 
@@ -272,6 +280,17 @@ namespace InputVCR {
             if ( frameIdx < 0 || frameIdx >= frames.Count )
                 throw new ArgumentException( "Tried to get frame outside recorded range" );
             return frames[frameIdx];
+        }
+
+        public string ToJson( bool prettyPrint = false ) {
+            return JsonUtility.ToJson( this, prettyPrint );
+        }
+
+        void ISerializationCallbackReceiver.OnBeforeSerialize() {
+            _schemaVersion = _CURRENT_JSON_SCHEMA_VERSION;
+        }
+
+        void ISerializationCallbackReceiver.OnAfterDeserialize() {
         }
     }
 }

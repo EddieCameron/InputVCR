@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEditor;
 using InputVCR;
 using UnityEngine.UIElements;
+using System;
+using System.IO;
 
 namespace InputVCREditor {
     [CustomEditor( typeof( InputVCRRecorder ) )]
@@ -12,8 +14,8 @@ namespace InputVCREditor {
         public override void OnInspectorGUI() {
             base.OnInspectorGUI();
 
+            var recorder = (InputVCRRecorder)target;
             if ( EditorApplication.isPlayingOrWillChangePlaymode ) {
-                var recorder = (InputVCRRecorder)target;
                 InputVCRMode recordMode = recorder.Mode;
 
                 // record controls
@@ -47,10 +49,11 @@ namespace InputVCREditor {
                     bool stopEnabled = recordMode != InputVCRMode.Passthru;
                     GUI.enabled = stopEnabled;
                     if ( GUILayout.Button( "STOP []", EditorStyles.miniButtonRight ) )
-                        recorder.RevertToPassthrough();
+                        recorder.Stop();
                 }
                 GUI.enabled = true;
 
+                var currentRecording = recorder.CurrentRecording;
                 if ( recorder.Mode == InputVCRMode.Record ) {
                     EditorGUILayout.LabelField( "Recording", EditorStyles.boldLabel );
                     EditorGUILayout.LabelField( "Length: " + recorder.CurrentPlaybackTime.ToString( "f2" ) );
@@ -61,18 +64,51 @@ namespace InputVCREditor {
                     else
                         EditorGUILayout.LabelField( "Stopped", EditorStyles.boldLabel );
 
-                    var currentRecord = recorder.CurrentRecord;
-                    if ( currentRecord == null ) {
-                        EditorGUILayout.LabelField( "No record in player" );
+                    if ( currentRecording == null ) {
+                        EditorGUILayout.LabelField( "No recording in player" );
                     }
                     else {
                         float time = recorder.CurrentPlaybackTime;
-                        float length = currentRecord.Length;
+                        float length = currentRecording.Length;
                         EditorGUILayout.LabelField( "Length: " + length.ToString( "f2" ) );
 
                         GUI.enabled = false;
                         EditorGUILayout.Slider( time, 0, length, GUILayout.ExpandWidth( true ) );
                         GUI.enabled = true;
+                    }
+                }
+
+                // recording save
+                if ( currentRecording != null ) {
+                    if ( GUILayout.Button( "Save Recording" ) ) {
+                        string recordingName = $"VCRRecord_{DateTime.Now:yy-MM-dd_HHmmss}";
+                        string path = EditorUtility.SaveFilePanelInProject( "Save Recording", recordingName, "txt", "Save current recording to disk as JSON" );
+                        if ( !string.IsNullOrEmpty( path ) ) {
+                            string json = currentRecording.ToJson();
+                            try {
+                                File.WriteAllText( path, json );
+                            }
+                            catch ( Exception e ) {
+                                Exception error = new Exception( "Failed to write recording to disk", e );
+                                Debug.LogException( e );
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Recording load
+            if ( GUILayout.Button( "Load Recording" ) ) {
+                string jsonPath = EditorUtility.OpenFilePanel( "Load Recording", Application.dataPath, "txt" );
+                if ( !string.IsNullOrEmpty( jsonPath ) ) {
+                    try {
+                        string recordJson = File.ReadAllText( jsonPath );
+                        Recording r = new Recording( recordJson );
+                        recorder.LoadRecording( r );
+                    }
+                    catch ( Exception e ) {
+                        Exception error = new Exception( "Failed to load recording from disk", e );
+                        Debug.LogException( e );
                     }
                 }
             }
