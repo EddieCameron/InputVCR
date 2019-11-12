@@ -1,10 +1,13 @@
-﻿using System.Collections;
+﻿/* CharacterController2D.cs
+ * Copyright Eddie Cameron 2019 (See readme for licence)
+ * ----------
+ */
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using InputVCR;
 
 namespace InputVCRExamples {
-    [RequireComponent( typeof( InputVCRRecorder ))]
     public class CharacterController2D : MonoBehaviour {
         public InputVCRRecorder recorder;
 

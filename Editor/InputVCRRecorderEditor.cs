@@ -1,4 +1,8 @@
-﻿using System.Collections;
+﻿/* InputVCRRecorderEditor.cs
+ * Copyright Eddie Cameron 2019 (See readme for licence)
+ * ----------
+ */
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
@@ -15,7 +19,7 @@ namespace InputVCREditor {
             base.OnInspectorGUI();
 
             var recorder = (InputVCRRecorder)target;
-            if ( EditorApplication.isPlayingOrWillChangePlaymode ) {
+            if ( EditorApplication.isPlaying ) {
                 InputVCRMode recordMode = recorder.Mode;
 
                 // record controls
@@ -64,18 +68,13 @@ namespace InputVCREditor {
                     else
                         EditorGUILayout.LabelField( "Stopped", EditorStyles.boldLabel );
 
-                    if ( currentRecording == null ) {
-                        EditorGUILayout.LabelField( "No recording in player" );
-                    }
-                    else {
-                        float time = recorder.CurrentPlaybackTime;
-                        float length = currentRecording.Length;
-                        EditorGUILayout.LabelField( "Length: " + length.ToString( "f2" ) );
+                    float time = recorder.CurrentPlaybackTime;
+                    float length = currentRecording.Length;
+                    EditorGUILayout.LabelField( "Length: " + length.ToString( "f2" ) );
 
-                        GUI.enabled = false;
-                        EditorGUILayout.Slider( time, 0, length, GUILayout.ExpandWidth( true ) );
-                        GUI.enabled = true;
-                    }
+                    GUI.enabled = false;
+                    EditorGUILayout.Slider( time, 0, length, GUILayout.ExpandWidth( true ) );
+                    GUI.enabled = true;
                 }
 
                 // recording save
@@ -87,6 +86,7 @@ namespace InputVCREditor {
                             string json = currentRecording.ToJson();
                             try {
                                 File.WriteAllText( path, json );
+                                AssetDatabase.Refresh();
                             }
                             catch ( Exception e ) {
                                 Exception error = new Exception( "Failed to write recording to disk", e );

@@ -291,6 +291,9 @@ namespace InputVCR {
         }
 
         void ISerializationCallbackReceiver.OnAfterDeserialize() {
+            if ( _schemaVersion != _CURRENT_JSON_SCHEMA_VERSION ) {
+                // TODO we need to ugprade!
+            }
         }
     }
 }

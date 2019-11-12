@@ -1,4 +1,8 @@
-﻿using System.Collections;
+﻿/* KeycodeHelper.cs
+ * Copyright Eddie Cameron 2019 (See readme for licence)
+ * ----------
+ */
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 

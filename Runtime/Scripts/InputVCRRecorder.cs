@@ -2,55 +2,28 @@
  * Copyright Eddie Cameron 2019 (See readme for licence)
  * ----------
  * Place on any object you wish to use to record or playback any inputs for
- * Switch modes to change current behaviour
- *   - Passthru : object will use live input commands from player
- *   - Record : object will use, as well as record, live input commands from player
- *   - Playback : object will use either provided input string or last recorded string rather than live input
- *   - Pause : object will take no input (buttons/axis will be frozen in last positions)
- *
+ * Use Record() and Play() to create and play back Recording objects
  * -----------
- * Recordings are all saved to the 'currentRecording' member, which you can get with GetRecording(). This can then be copied
- * to a new Recording object to be saved and played back later.
- * Call ToString() on these recordings to get a text version of this if you want to save a recording after the program exits.
+ * CurrentRecording holds a reference to the Recording last recorded to or played back from.
+ * Create a clone with new Recording( recordingToClone ) on it to create a C# copy that can later be played in this or another Recorder
+ * or, Call ToJson() on it to get a serialized string that can be written to disk.
+ * (note, these recordings can get quite large, so I suggest either compression or adding binary serialization for long recordings)
  * -----------
- * To use, place in a gameobject, and have all scripts in the object refer to it instead of Input.
- *
- * eg: instead of Input.GetButton( "Jump" ), you would use vcr.GetButton( "Jump" ), where vcr is a
- * reference to the component in that object
- * If VCR is in playback mode, and the "Jump" input was recorded, it will give the recorded input state,
- * otherwise it will just pass through the live input state
- *
- * Note, InputVCR can't be statically referenced like Input, since you may have multiple objects playing
- * different recordings, or an object playing back while another is taking live input...
- * ----------
- * Use this snippet in scripts you wish to replace Input with InputVCR, so they can be used in objects without a VCR as well:
-
-  private bool useVCR;
-  private InputVCR vcr;
-
-  void Awake()
-  {
-    Transform root = transform;
-	while ( root.parent != null )
-		root = root.parent;
-	vcr = root.GetComponent<InputVCR>();
-	useVCR = vcr != null;
-  }
-
- * Then Replace any input lines with:
-
-  if ( useVCR )
-  	<some input value> = vcr.GetSomeInput( "someInputName" );
-  else
-  	<some input value> = Input.GetSomeInput( "someInputName" );
-
+ * To record, add a list of button name strings from Input Manager, or a list of Keyboard/controller keys to save.
+ * -----------
+ * Scripts that need to listen to playback need to call Input methods on this recorder instead of Input. ie: call thisVcrRecorder.GetButton( "Jump" ) instead of Input.GetButton( "Jump" ).
+ * When recording or not playing, these methods will just return whatever the Input methods would return, while when playing they will return whatever state was recorded
+ * -----------
+ * You can also record arbitrary values to the recording, eg: save the position of an object in each frame.
+ * To do this, call SetProperty() with a tag and the value of the property (in string form), while recording.
+ * During playback, call TryGetProperty() with the same tag, and if successful, you will get the recorded value back
  * Easy!
  * -------------
- * More information and tools at grapefruitgames.com, @eddiecameron, or support@grapefruitgames.com
+ * See the Examples folder for usage examples
  *
- * This script is open source under the GNU LGPL licence. Do what you will with it!
- * http://www.gnu.org/licenses/lgpl.txt
+ * More information and tools at eddiecameron.fun, or twitter @eddiecameron
  *
+ * This script is open source under the MIT licence. Do what you will with it!
  */
 using UnityEngine;
 using System.Collections;
@@ -102,16 +75,13 @@ namespace InputVCR {
         /// <summary>
         /// Holds info about the playback/record state. eg: playback time
         /// </summary>
-        RecordingState recordingState;     // the recording currently in the VCR. Copy or ToString() this to save.
-        public Recording CurrentRecording => recordingState == null ? null : recordingState.targetRecording;
+        RecordingState recordingState = new RecordingState( new Recording() );     // the recording currently in the VCR. Copy or ToString() this to save.
+        public Recording CurrentRecording => recordingState.targetRecording;
         public float CurrentPlaybackTime {
             get {
-                return recordingState == null ? 0 : recordingState.Time;
+                return recordingState.Time;
             }
             set {
-                if ( recordingState == null )
-                    return;
-
                 recordingState.SkipToTime( value );
                 if ( Mode == InputVCRMode.Record ) {
                     // wipe any recording after current time
@@ -155,7 +125,7 @@ namespace InputVCR {
         }
 
         void Record( bool forceNewRecording ) {
-            if ( forceNewRecording || recordingState == null ) {
+            if ( forceNewRecording ) {
                 recordingState = new RecordingState( new Recording() );
                 nextPropertiesToRecord.Clear();
             }
@@ -207,6 +177,8 @@ namespace InputVCR {
         /// Set the current recording's (if present) playback time to the beginning
         /// </summary>
         public void RewindToStart() {
+            if ( Mode == InputVCRMode.Record )
+                Stop();
             CurrentPlaybackTime = 0;
         }
 
@@ -457,11 +429,15 @@ namespace InputVCR {
             }
         }
 
-        public string GetProperty( string propertyName ) {
-            if ( thisFrameProperties.TryGetValue( propertyName, out Recording.FrameProperty frameProp ) )
-                return frameProp.value;
-            else
-                return string.Empty;
+        public bool TryGetProperty( string propertyName, out string propertyValue ) {
+            if ( thisFrameProperties.TryGetValue( propertyName, out Recording.FrameProperty frameProp ) ) {
+                propertyValue = frameProp.value;
+                return true;
+            }
+            else {
+                propertyValue = string.Empty;
+                return false;
+            }
         }
         #endregion
 
