@@ -363,7 +363,7 @@ namespace InputVCR {
                 return thisFrameButtonDown && !lastFrameButtonDown;
             }
 
-            return Input.GetKeyDown( buttonName );
+            return Input.GetButtonDown( buttonName );
         }
 
         public bool GetButtonUp( string buttonName ) {
@@ -373,7 +373,7 @@ namespace InputVCR {
                 return !thisFrameButtonDown && lastFrameButtonDown;
             }
 
-            return Input.GetKeyUp( buttonName );
+            return Input.GetButtonUp( buttonName );
         }
 
         public float GetAxis( string axisName ) {
@@ -385,6 +385,17 @@ namespace InputVCR {
             }
 
             return Input.GetAxis( axisName );
+        }
+        
+        public float GetAxisRaw( string axisName ) {
+            if ( Mode == InputVCRMode.Playback ) {
+                if ( thisFrameInputs.TryGetValue( axisName, out Recording.InputState thisFrameState ) )
+                    return thisFrameState.axisValue;
+                else
+                    return 0;
+            }
+
+            return Input.GetAxisRaw( axisName );
         }
 
         public bool GetMouseButton( int buttonNum ) {
