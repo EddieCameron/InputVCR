@@ -386,8 +386,8 @@ namespace InputVCR {
 
             return Input.GetAxis( axisName );
         }
-		
-		public float GetAxisRaw( string axisName ) {
+        
+        public float GetAxisRaw( string axisName ) {
             if ( Mode == InputVCRMode.Playback ) {
                 if ( thisFrameInputs.TryGetValue( axisName, out Recording.InputState thisFrameState ) )
                     return thisFrameState.axisValue;
